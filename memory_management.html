@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Management System</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            margin-top: 50px;
+        }
+
+        #memoryLayout {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .block {
+            border: 1px solid #343a40;
+            border-radius: 5px;
+            margin: 5px;
+            padding: 10px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .allocated {
+            background-color: #ffcccc;
+        }
+
+        .free {
+            background-color: #ccffcc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center my-4">Memory Management System</h1>
+        <div class="row mb-3">
+            <div class="col-md-6 offset-md-3">
+                <label for="memorySize">Enter the memory size in KB:</label>
+                <input type="number" id="memorySize" class="form-control" placeholder="Memory Size">
+                <button id="initializeMemory" class="btn btn-primary mt-2">Initialize Memory</button>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6 offset-md-3">
+                <label for="label">Enter label:</label>
+                <input type="text" id="label" class="form-control" placeholder="Label">
+                <label for="size" class="mt-2">Enter size in KB:</label>
+                <input type="number" id="size" class="form-control" placeholder="Size">
+                <button id="allocateMemory" class="btn btn-success mt-2">Allocate Memory</button>
+                <button id="releaseMemory" class="btn btn-warning mt-2">Release Memory</button>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <button id="resetMemory" class="btn btn-danger">Reset Memory Layout</button>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <div id="memoryLayout"></div>
+            </div>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+    <script>
+        class Block {
+            constructor(size, label, free) {
+                this.size = size;
+                this.label = label;
+                this.free = free;
+                this.next = null;
+            }
+        }
+
+        let head = null;
+
+        function createBlock(size, label, free) {
+            return new Block(size, label, free);
+        }
+
+        function initializeMemory(size) {
+            head = createBlock(size, "", true);
+            printMemory();
+        }
+
+        function printMemory() {
+            let current = head;
+            const memoryLayout = document.getElementById("memoryLayout");
+            memoryLayout.innerHTML = ""; 
+            while (current != null) {
+                const blockDiv = document.createElement("div");
+                blockDiv.classList.add("block");
+                blockDiv.classList.add(current.free ? "free" : "allocated");
+                blockDiv.style.flexBasis = `${current.size}px`;  
+                blockDiv.innerHTML = `<strong>${current.label}</strong><br>${current.size}K<br>${current.free ? "Free" : "Allocated"}`;
+                memoryLayout.appendChild(blockDiv);
+                current = current.next;
+            }
+        }
+
+        function splitBlock(block, size) {
+            while (block.size / 2 >= size) {
+                let buddy = createBlock(block.size / 2, "", true);
+                buddy.next = block.next;
+                block.next = buddy;
+                block.size /= 2;
+            }
+        }
+
+        function allocateMemory(label, size) {
+            let current = head;
+            let bestFit = null;
+
+            while (current != null) {
+                if (current.free && current.size >= size) {
+                    if (bestFit == null || current.size < bestFit.size) {
+                        bestFit = current;
+                    }
+                }
+                current = current.next;
+            }
+
+            if (bestFit != null) {
+                splitBlock(bestFit, size);
+                bestFit.label = label;
+                bestFit.free = false;
+            } else {
+                alert("Allocation failed: Not enough memory.");
+            }
+            printMemory();
+        }
+
+        function mergeBlocks() {
+            let current = head;
+            while (current != null && current.next != null) {
+                if (current.free && current.next.free && current.size === current.next.size) {
+                    let buddy = current.next;
+                    current.size *= 2;
+                    current.next = buddy.next;
+                } else {
+                    current = current.next;
+                }
+            }
+        }
+
+        function releaseMemory(label) {
+            let current = head;
+            while (current != null) {
+                if (!current.free && current.label === label) {
+                    current.free = true;
+                    current.label = "";
+                    break;
+                }
+                current = current.next;
+            }
+            mergeBlocks();
+            printMemory();
+        }
+
+        function resetMemory() {
+            head = null;
+            document.getElementById("memoryLayout").innerHTML = "";
+            document.getElementById("memorySize").value = "";
+            document.getElementById("label").value = "";
+            document.getElementById("size").value = "";
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            document.getElementById("initializeMemory").addEventListener("click", function() {
+                let memorySize = parseInt(document.getElementById("memorySize").value);
+                if (isNaN(memorySize) || memorySize <= 0) {
+                    alert("Please enter a valid memory size.");
+                    return;
+                }
+                initializeMemory(memorySize);
+            });
+
+            document.getElementById("allocateMemory").addEventListener("click", function() {
+                let label = document.getElementById("label").value;
+                let size = parseInt(document.getElementById("size").value);
+                if (label === "" || isNaN(size) || size <= 0) {
+                    alert("Please enter valid label and size.");
+                    return;
+                }
+                allocateMemory(label, size);
+            });
+
+            document.getElementById("releaseMemory").addEventListener("click", function() {
+                let label = document.getElementById("label").value;
+                if (label === "") {
+                    alert("Please enter a valid label.");
+                    return;
+                }
+                releaseMemory(label);
+            });
+
+            document.getElementById("resetMemory").addEventListener("click", function() {
+                resetMemory();
+            });
+        });
+    </script>
+</body>
+</html>
